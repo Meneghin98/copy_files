@@ -45,6 +45,7 @@ class _HomePageState extends State<HomePage> {
   FileActionFunction actionFunction = copy;
 
   Status status = Status.missingSource;
+  Duration? timeTook;
 
   @override
   Widget build(BuildContext context) {
@@ -148,11 +149,16 @@ class _HomePageState extends State<HomePage> {
 
                 setState(() {
                   status = Status.loading;
+                  timeTook = null;
                 });
 
-                unawaited(actionFunction(source: source!, destination: target!).then((_) {
+                Stopwatch stopwatch = Stopwatch()..start();
+                unawaited(actionFunction(source: source!, destination: target!)
+                    .then((_) {
+                  stopwatch.stop();
                   setState(() {
                     status = Status.finished;
+                    timeTook = stopwatch.elapsed;
                   });
                 }));
               },
@@ -165,7 +171,8 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(width: 10),
                 Text(status.description),
               ],
-            )
+            ),
+            ...(timeTook != null ? [Text('Tempo impiegato: $timeTook')] : [])
           ],
         ),
       ),
