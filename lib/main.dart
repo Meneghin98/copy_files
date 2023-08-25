@@ -1,16 +1,16 @@
-import 'dart:async';
 import 'dart:io';
 
+import 'package:copy_files/app_status.dart';
+import 'package:copy_files/constants.dart';
 import 'package:copy_files/system.dart';
-import 'package:copy_files/widgets/big_card.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/material.dart';
+import 'package:fluent_ui/fluent_ui.dart';
 import 'package:window_size/window_size.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    setWindowTitle('Copy');
+    setWindowTitle(appName);
   }
   runApp(const CopyApp());
 }
@@ -20,12 +20,12 @@ class CopyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.orange,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange),
-        useMaterial3: true,
+    return FluentApp(
+      title: appName,
+      theme: FluentThemeData(
+        accentColor: Colors.orange,
+        brightness: Brightness.light,
+        scaffoldBackgroundColor: Colors.white.withOpacity(.95),
       ),
       home: const HomePage(),
     );
@@ -47,121 +47,103 @@ class _HomePageState extends State<HomePage> {
   Status status = Status.missingSource;
   Duration? timeTook;
 
+  void _start() async {
+    if (source == null) {
+      setState(() {
+        status = Status.missingSource;
+      });
+      return;
+    }
+
+    if (target == null) {
+      setState(() {
+        status = Status.missingTarget;
+      });
+      return;
+    }
+
+    setState(() {
+      status = Status.loading;
+      timeTook = null;
+    });
+
+    Stopwatch stopwatch = Stopwatch()..start();
+    await actionFunction(source: source!, destination: target!);
+    stopwatch.stop();
+
+    setState(() {
+      status = Status.finished;
+      timeTook = stopwatch.elapsed;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).primaryColorLight,
-      body: Center(
+    return ScaffoldPage.withPadding(
+      header: PageHeader(
+        title: Text(
+          appName,
+          style: TextStyle(color: FluentTheme.of(context).accentColor),
+        ),
+      ),
+      content: Center(
         child: Column(
           children: [
-            const BigCard('Copy'),
-            Padding(
-              padding: const EdgeInsets.only(left: 15, right: 15),
-              child: Table(
-                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                columnWidths: const {
-                  0: IntrinsicColumnWidth(),
-                  2: IntrinsicColumnWidth(),
-                },
-                children: [
-                  TableRow(
-                    children: [
-                      const Text('Cartella di origine:'),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final selection = await getDirectoryPath();
-                            setState(() {
-                              source = selection != null
-                                  ? Directory(selection)
-                                  : null;
-                              status = Status.missingTarget;
-                            });
-                          },
-                          child: Text(source?.path ?? "Seleziona la cartella"),
-                        ),
-                      ),
-                    ],
-                  ),
-                  TableRow(
-                    children: [
-                      const Text('Cartella di destinazione:'),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final selection = await getDirectoryPath();
-                            setState(() {
-                              target = selection != null
-                                  ? Directory(selection)
-                                  : null;
-                              status = Status.ready;
-                            });
-                          },
-                          child: Text(target?.path ?? "Seleziona la cartella"),
-                        ),
-                      )
-                    ],
-                  )
-                ],
-              ),
+            Table(
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              columnWidths: const {
+                0: IntrinsicColumnWidth(),
+                2: IntrinsicColumnWidth(),
+              },
+              children: [
+                tableRowWidget(
+                  text: "Cartella di origine:",
+                  buttonText: source?.path ?? "Seleziona la cartella",
+                  onButtonPressed: () async {
+                    final selection = await getDirectoryPath();
+                    setState(() {
+                      source = selection != null ? Directory(selection) : null;
+                      status = Status.missingTarget;
+                    });
+                  },
+                ),
+                tableRowWidget(
+                  text: "Cartella di destinazione:",
+                  buttonText: target?.path ?? "Seleziona la cartella",
+                  onButtonPressed: () async {
+                    final selection = await getDirectoryPath();
+                    setState(() {
+                      target = selection != null ? Directory(selection) : null;
+                      status = Status.ready;
+                    });
+                  },
+                ),
+              ],
             ),
             ListTile(
               title: const Text('Copia'),
-              leading: Radio<FileActionFunction>(
-                value: copy,
-                groupValue: actionFunction,
+              leading: RadioButton(
+                checked: actionFunction == copy,
                 onChanged: (value) {
                   setState(() {
-                    actionFunction = value ?? copy;
+                    actionFunction = copy;
                   });
                 },
               ),
             ),
             ListTile(
               title: const Text('Sposta'),
-              leading: Radio<FileActionFunction>(
-                value: move,
-                groupValue: actionFunction,
+              leading: RadioButton(
+                checked: actionFunction == move,
                 onChanged: (value) {
                   setState(() {
-                    actionFunction = value ?? move;
+                    actionFunction = move;
                   });
                 },
               ),
             ),
             FilledButton(
-              onPressed: () async {
-                if (source == null) {
-                  setState(() {
-                    status = Status.missingSource;
-                  });
-                  return;
-                }
-
-                if (target == null) {
-                  setState(() {
-                    status = Status.missingTarget;
-                  });
-                  return;
-                }
-
-                setState(() {
-                  status = Status.loading;
-                  timeTook = null;
-                });
-
-                Stopwatch stopwatch = Stopwatch()..start();
-                unawaited(actionFunction(source: source!, destination: target!)
-                    .then((_) {
-                  stopwatch.stop();
-                  setState(() {
-                    status = Status.finished;
-                    timeTook = stopwatch.elapsed;
-                  });
-                }));
-              },
+              onPressed: _start,
               child: const Text('Start'),
             ),
             Row(
@@ -180,13 +162,25 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-enum Status {
-  missingSource(description: "Selezionare una cartella di origine"),
-  missingTarget(description: "Selezionare una certella di destinazione"),
-  ready(description: "Pronto ad eseguire"),
-  loading(description: "Caricamento"),
-  finished(description: "Terminato");
-
-  const Status({required this.description});
-  final String description;
+TableRow tableRowWidget(
+    {required String text,
+    required void Function()? onButtonPressed,
+    required String buttonText}) {
+  return TableRow(
+    children: [
+      Text(text),
+      Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Button(
+          onPressed: onButtonPressed,
+          child: Builder(
+            builder: (var context) => Text(
+              buttonText,
+              style: TextStyle(color: FluentTheme.of(context).accentColor),
+            ),
+          ),
+        ),
+      )
+    ],
+  );
 }
