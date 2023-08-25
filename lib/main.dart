@@ -1,10 +1,13 @@
 import 'dart:io';
 
+import 'package:copy_files/app_context.dart';
 import 'package:copy_files/app_status.dart';
 import 'package:copy_files/constants.dart';
 import 'package:copy_files/system.dart';
+import 'package:copy_files/widgets/console.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:provider/provider.dart';
 import 'package:window_size/window_size.dart';
 
 void main() {
@@ -12,7 +15,12 @@ void main() {
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     setWindowTitle(appName);
   }
-  runApp(const CopyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AppContext(),
+      child: const CopyApp(),
+    ),
+  );
 }
 
 class CopyApp extends StatelessWidget {
@@ -48,6 +56,7 @@ class _HomePageState extends State<HomePage> {
   Duration? timeTook;
 
   void _start() async {
+    //TODO: verificare che la directory target non sia all'interno della directory source!!!!
     if (source == null) {
       setState(() {
         status = Status.missingSource;
@@ -79,6 +88,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    var state = context.watch<AppContext>();
     return ScaffoldPage.withPadding(
       header: PageHeader(
         title: Text(
@@ -146,15 +156,12 @@ class _HomePageState extends State<HomePage> {
               onPressed: _start,
               child: const Text('Start'),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('Stato:'),
-                const SizedBox(width: 10),
-                Text(status.description),
-              ],
+            const SizedBox(height: 10),
+            const Console(),
+            SizedBox(
+              height: 10,
+              child: status == Status.loading ? const ProgressBar() : null,
             ),
-            ...(timeTook != null ? [Text('Tempo impiegato: $timeTook')] : [])
           ],
         ),
       ),
