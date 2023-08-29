@@ -1,5 +1,12 @@
 import 'dart:io';
 
+/*
+TODO: scrivere funzione per scoprire tutti i file presenti nella cartella source
+TODO: riscrivere le funzioni copy e move usando gli streams
+TODO: le nuove funzioni copy e move devono avere callback per gli eventi 'onData', 'onError' e 'onDone'
+*/
+
+
 typedef ApplyFunction = void Function(File current, File destination);
 typedef FileActionFunction = Future<void> Function({required Directory source, required Directory destination});
 
