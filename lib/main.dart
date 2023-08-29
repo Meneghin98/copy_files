@@ -32,8 +32,9 @@ class CopyApp extends StatelessWidget {
       title: appName,
       theme: FluentThemeData(
         accentColor: Colors.orange,
+        
         brightness: Brightness.light,
-        scaffoldBackgroundColor: Colors.white.withOpacity(.95),
+        scaffoldBackgroundColor: Colors.white.withOpacity(.93),
       ),
       home: const HomePage(),
     );
