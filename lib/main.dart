@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:copy_files/app_context.dart';
-import 'package:copy_files/app_status.dart';
 import 'package:copy_files/constants.dart';
 import 'package:copy_files/system.dart';
 import 'package:copy_files/widgets/console.dart';
@@ -32,7 +31,6 @@ class CopyApp extends StatelessWidget {
       title: appName,
       theme: FluentThemeData(
         accentColor: Colors.orange,
-        
         brightness: Brightness.light,
         scaffoldBackgroundColor: Colors.white.withOpacity(.93),
       ),
@@ -49,47 +47,70 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  Directory? source;
-  Directory? target;
-  FileActionFunction actionFunction = copy;
+  Directory? _source;
+  Directory? _target;
+  FileActionFunction _actionFunction = copy;
 
-  Status status = Status.missingSource;
-  Duration? timeTook;
-
-  void _start() async {
-    //TODO: verificare che la directory target non sia all'interno della directory source!!!!
-    if (source == null) {
-      setState(() {
-        status = Status.missingSource;
-      });
-      return;
-    }
-
-    if (target == null) {
-      setState(() {
-        status = Status.missingTarget;
-      });
-      return;
-    }
-
-    setState(() {
-      status = Status.loading;
-      timeTook = null;
-    });
-
-    Stopwatch stopwatch = Stopwatch()..start();
-    await actionFunction(source: source!, destination: target!);
-    stopwatch.stop();
-
-    setState(() {
-      status = Status.finished;
-      timeTook = stopwatch.elapsed;
-    });
-  }
+  bool _isProcessing = false;
+  int _fileCount = 0;
+  int _fileProcessed = 0;
 
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppContext>();
+
+    Future<void> start() async {
+      state.clearMessages();
+      setState(() {
+        _fileCount = 0;
+        _fileProcessed = 0;
+      });
+      //TODO: verificare che la directory target non sia all'interno della directory source!!!!
+      if (_source == null) {
+        state.addMessage('Cartella di origine mancante');
+        return;
+      }
+
+      if (_target == null) {
+        state.addMessage('Cartella di destinazione mancante');
+        return;
+      }
+
+      setState(() {
+        _isProcessing = true;
+      });
+      state.addMessage('Ricerca di tutti i files...');
+      int fileCount = await filesLookup(source: _source!);
+      state.addMessage('Trovati $fileCount files');
+      setState(() {
+        _fileCount = fileCount;
+      });
+
+      state.addMessage('Inizio a processare i file');
+      Stopwatch stopwatch = Stopwatch()..start();
+      _actionFunction(
+        source: _source!,
+        destination: _target!,
+        onError: (error) {
+          state.addMessage(error);
+        },
+        onData: (File file) {
+          state.addMessage('Elaborato ${file.path}');
+          setState(() {
+            _fileProcessed++;
+          });
+        },
+        onDone: () {
+          stopwatch.stop();
+          state.addMessage(
+              'Elaborazione terminata. Tempo impiegato: ${stopwatch.elapsed}');
+          setState(() {
+            _isProcessing = false;
+          });
+        },
+      );
+    }
+
     return ScaffoldPage.withPadding(
       header: PageHeader(
         title: Text(
@@ -109,23 +130,21 @@ class _HomePageState extends State<HomePage> {
               children: [
                 tableRowWidget(
                   text: "Cartella di origine:",
-                  buttonText: source?.path ?? "Seleziona la cartella",
+                  buttonText: _source?.path ?? "Seleziona la cartella",
                   onButtonPressed: () async {
                     final selection = await getDirectoryPath();
                     setState(() {
-                      source = selection != null ? Directory(selection) : null;
-                      status = Status.missingTarget;
+                      _source = selection != null ? Directory(selection) : null;
                     });
                   },
                 ),
                 tableRowWidget(
                   text: "Cartella di destinazione:",
-                  buttonText: target?.path ?? "Seleziona la cartella",
+                  buttonText: _target?.path ?? "Seleziona la cartella",
                   onButtonPressed: () async {
                     final selection = await getDirectoryPath();
                     setState(() {
-                      target = selection != null ? Directory(selection) : null;
-                      status = Status.ready;
+                      _target = selection != null ? Directory(selection) : null;
                     });
                   },
                 ),
@@ -134,10 +153,10 @@ class _HomePageState extends State<HomePage> {
             ListTile(
               title: const Text('Copia'),
               leading: RadioButton(
-                checked: actionFunction == copy,
+                checked: _actionFunction == copy,
                 onChanged: (value) {
                   setState(() {
-                    actionFunction = copy;
+                    _actionFunction = copy;
                   });
                 },
               ),
@@ -145,23 +164,30 @@ class _HomePageState extends State<HomePage> {
             ListTile(
               title: const Text('Sposta'),
               leading: RadioButton(
-                checked: actionFunction == move,
+                checked: _actionFunction == move,
                 onChanged: (value) {
                   setState(() {
-                    actionFunction = move;
+                    _actionFunction = move;
                   });
                 },
               ),
             ),
             FilledButton(
-              onPressed: _start,
+              onPressed: start,
               child: const Text('Start'),
             ),
             const SizedBox(height: 10),
             const Console(),
             SizedBox(
               height: 10,
-              child: status == Status.loading ? const ProgressBar() : null,
+              width: double.infinity,
+              child: _isProcessing
+                  ? ProgressBar(
+                      value: _fileCount > 0
+                          ? _fileProcessed / _fileCount * 100
+                          : null,
+                    )
+                  : null,
             ),
           ],
         ),
