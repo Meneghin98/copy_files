@@ -65,14 +65,16 @@ class _HomePageState extends State<HomePage> {
         _fileCount = 0;
         _fileProcessed = 0;
       });
-      //TODO: verificare che la directory target non sia all'interno della directory source!!!!
       if (_source == null) {
         state.addMessage('Cartella di origine mancante');
         return;
       }
-
       if (_target == null) {
         state.addMessage('Cartella di destinazione mancante');
+        return;
+      }
+      if(isSubfolder(parent: _source!, child: _target!)){ 
+        state.addMessage("La cartella di destinazione é una sotto cartella della cartella di origine. Per favore scegliere un'altra cartella");
         return;
       }
 

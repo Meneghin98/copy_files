@@ -81,3 +81,9 @@ String _getFileFileExtention(File file) {
   List<String> fileNameParts = fileName.split('.');
   return fileNameParts.removeLast();
 }
+
+
+bool isSubfolder({required Directory parent, required Directory child})
+{
+  return child.path.contains(parent.path);
+}
