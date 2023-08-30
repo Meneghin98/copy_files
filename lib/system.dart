@@ -1,65 +1,67 @@
 import 'dart:io';
 
-/*
-TODO: scrivere funzione per scoprire tutti i file presenti nella cartella source
-TODO: riscrivere le funzioni copy e move usando gli streams
-TODO: le nuove funzioni copy e move devono avere callback per gli eventi 'onData', 'onError' e 'onDone'
-*/
+typedef FileActionFunction = void Function(
+    {required Directory source,
+    required Directory destination,
+    required Function onError,
+    required void Function() onDone,
+    Function? onData});
 
-
-typedef ApplyFunction = void Function(File current, File destination);
-typedef FileActionFunction = Future<void> Function({required Directory source, required Directory destination});
-
-Future<void> copy({required Directory source, required Directory destination}) async {
-  return _loopFiles(
-    source: source,
-    destination: destination,
-    apply: (current, destination) {
-      current.copySync(destination.path);
-    }
-  );
+Future<int> filesLookup({required Directory source}) async {
+  return await source
+      .list(recursive: true)
+      .where((event) => event is File)
+      .length;
 }
 
-Future<void> move({required Directory source, required Directory destination}) async {
-  return _loopFiles(
-    source: source,
-    destination: destination,
-    apply: (current, destination) {
-      current.renameSync(destination.path);
-    }
-  );
+void copy(
+    {required Directory source,
+    required Directory destination,
+    required Function onError,
+    required void Function() onDone,
+    Function? onData}) {
+  source
+      .list(recursive: true)
+      .where((event) => event is File)
+      .map((event) => event as File)
+      .listen((event) {
+    File destinationFile =
+        _getDestinationFile(file: event, destination: destination);
+    event.copySync(destinationFile.path);
+    onData?.call(event);
+  }, cancelOnError: false, onError: onError, onDone: onDone);
 }
 
-
-Future<void> _loopFiles({required Directory source, required Directory destination, required ApplyFunction apply }) async {
-  await for (final entity in source.list(recursive: false)) {
-
-    if(entity is Directory) {
-      await Future.wait([_loopFiles(source: entity, destination: destination, apply: apply)]);
-    }
-
-    if(entity is File) {
-      String fileName = _getFileFileName(entity);
-      String fileExtention = _getFileFileExtention(entity);
-      File destinationFile = File('${destination.path}\\$fileName.$fileExtention');
-
-      if(await destinationFile.exists()) {
-        destinationFile = await _rename(destination: destination, fileName: fileName, fileExtention: fileExtention);
-      }
-
-      apply(entity, destinationFile);
-    }
-
-  }
+void move(
+    {required Directory source,
+    required Directory destination,
+    required Function onError,
+    required void Function() onDone,
+    Function? onData}) {
+  source
+      .list(recursive: true)
+      .where((event) => event is File)
+      .map((event) => event as File)
+      .listen((event) {
+    File destinationFile =
+        _getDestinationFile(file: event, destination: destination);
+    event.rename(destinationFile.path);
+    onData?.call(event);
+  }, cancelOnError: false, onError: onError, onDone: onDone);
 }
 
-Future<File> _rename({required Directory destination, required String fileName, required String fileExtention}) async {
-  int tryCount = 1;
-  File destinationFile = File('${destination.path}\\${fileName}_$tryCount.$fileExtention');
+File _getDestinationFile({required File file, required Directory destination}) {
+  String fileName = _getFileFileName(file);
+  String fileExtention = _getFileFileExtention(file);
+  File destinationFile = File('${destination.path}\\$fileName.$fileExtention');
 
-  while (await destinationFile.exists()) {
-    tryCount++;
-    destinationFile = File('${destination.path}\\${fileName}_$tryCount.$fileExtention');
+  if (destinationFile.existsSync()) {
+    int tryCount = 1;
+    while (destinationFile.existsSync()) {
+      destinationFile =
+          File('${destination.path}\\${fileName}_$tryCount.$fileExtention');
+      tryCount++;
+    }
   }
 
   return destinationFile;
