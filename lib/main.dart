@@ -69,7 +69,7 @@ class _HomePageState extends State<HomePage> {
       state.addMessage('Cartella di destinazione mancante');
       return;
     }
-    if(isSubfolder(parent: _source!, child: _target!)){ 
+    if(await isSubfolder(parent: _source!, child: _target!)){ 
       state.addMessage("La cartella di destinazione é una sotto cartella della cartella di origine. Per favore scegliere un'altra cartella");
       return;
     }

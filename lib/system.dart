@@ -92,6 +92,6 @@ String _getFileExtention(File file) {
   return fileNameParts.removeLast();
 }
 
-bool isSubfolder({required Directory parent, required Directory child}) {
-  return child.path.contains(parent.path);
+Future<bool> isSubfolder({required Directory parent, required Directory child}) {
+  return parent.list(recursive: true).any((element) => element.uri == child.uri);
 }
