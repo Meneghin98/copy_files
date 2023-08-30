@@ -14,6 +14,8 @@ Future<int> filesLookup({required Directory source}) async {
       .length;
 }
 
+List<String> _filesUnderProcess = [];
+
 void copy(
     {required Directory source,
     required Directory destination,
@@ -27,9 +29,13 @@ void copy(
       .listen((event) {
     File destinationFile =
         _getDestinationFile(file: event, destination: destination);
-    event.copySync(destinationFile.path);
+    _filesUnderProcess.add(destinationFile.path);
+    event.copy(destinationFile.path).then((value) => _filesUnderProcess.remove(destinationFile.path));
     onData?.call(event);
-  }, cancelOnError: false, onError: onError, onDone: onDone);
+  }, cancelOnError: false, onError: onError, onDone: () {
+    onDone();
+    _filesUnderProcess.clear();
+  });
 }
 
 void move(
@@ -45,19 +51,23 @@ void move(
       .listen((event) {
     File destinationFile =
         _getDestinationFile(file: event, destination: destination);
-    event.rename(destinationFile.path);
+    _filesUnderProcess.add(destinationFile.path);
+    event.rename(destinationFile.path).then((value) => _filesUnderProcess.remove(destinationFile.path));
     onData?.call(event);
-  }, cancelOnError: false, onError: onError, onDone: onDone);
+  }, cancelOnError: false, onError: onError, onDone: () {
+    onDone();
+    _filesUnderProcess.clear();
+  });
 }
 
 File _getDestinationFile({required File file, required Directory destination}) {
-  String fileName = _getFileFileName(file);
-  String fileExtention = _getFileFileExtention(file);
+  String fileName = _getFileName(file);
+  String fileExtention = _getFileExtention(file);
   File destinationFile = File('${destination.path}\\$fileName.$fileExtention');
 
-  if (destinationFile.existsSync()) {
+  if (destinationFile.existsSync() || _filesUnderProcess.contains(destinationFile.path)) {
     int tryCount = 1;
-    while (destinationFile.existsSync()) {
+    while (destinationFile.existsSync() || _filesUnderProcess.contains(destinationFile.path)) {
       destinationFile =
           File('${destination.path}\\${fileName}_$tryCount.$fileExtention');
       tryCount++;
@@ -67,7 +77,7 @@ File _getDestinationFile({required File file, required Directory destination}) {
   return destinationFile;
 }
 
-String _getFileFileName(File file) {
+String _getFileName(File file) {
   String path = file.path;
   String fileName = path.split('\\').last;
   List<String> fileNameParts = fileName.split('.');
@@ -75,15 +85,13 @@ String _getFileFileName(File file) {
   return fileNameParts.join('.');
 }
 
-String _getFileFileExtention(File file) {
+String _getFileExtention(File file) {
   String path = file.path;
   String fileName = path.split('\\').last;
   List<String> fileNameParts = fileName.split('.');
   return fileNameParts.removeLast();
 }
 
-
-bool isSubfolder({required Directory parent, required Directory child})
-{
+bool isSubfolder({required Directory parent, required Directory child}) {
   return child.path.contains(parent.path);
 }

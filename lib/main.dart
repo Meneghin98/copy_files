@@ -55,63 +55,63 @@ class _HomePageState extends State<HomePage> {
   int _fileCount = 0;
   int _fileProcessed = 0;
 
+  Future<void> start(AppContext state) async {
+    state.clearMessages();
+    setState(() {
+      _fileCount = 0;
+      _fileProcessed = 0;
+    });
+    if (_source == null) {
+      state.addMessage('Cartella di origine mancante');
+      return;
+    }
+    if (_target == null) {
+      state.addMessage('Cartella di destinazione mancante');
+      return;
+    }
+    if(isSubfolder(parent: _source!, child: _target!)){ 
+      state.addMessage("La cartella di destinazione é una sotto cartella della cartella di origine. Per favore scegliere un'altra cartella");
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+    });
+    state.addMessage('Ricerca di tutti i files...');
+    int fileCount = await filesLookup(source: _source!);
+    state.addMessage('Trovati $fileCount files');
+    setState(() {
+      _fileCount = fileCount;
+    });
+
+    state.addMessage('Inizio a processare i file');
+    Stopwatch stopwatch = Stopwatch()..start();
+    _actionFunction(
+      source: _source!,
+      destination: _target!,
+      onError: (error) {
+        state.addMessage(error);
+      },
+      onData: (File file) {
+        state.addMessage('Elaborato ${file.path}');
+        setState(() {
+          _fileProcessed++;
+        });
+      },
+      onDone: () {
+        stopwatch.stop();
+        state.addMessage(
+            'Elaborazione terminata. Tempo impiegato: ${stopwatch.elapsed}');
+        setState(() {
+          _isProcessing = false;
+        });
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     var state = context.watch<AppContext>();
-
-    Future<void> start() async {
-      state.clearMessages();
-      setState(() {
-        _fileCount = 0;
-        _fileProcessed = 0;
-      });
-      if (_source == null) {
-        state.addMessage('Cartella di origine mancante');
-        return;
-      }
-      if (_target == null) {
-        state.addMessage('Cartella di destinazione mancante');
-        return;
-      }
-      if(isSubfolder(parent: _source!, child: _target!)){ 
-        state.addMessage("La cartella di destinazione é una sotto cartella della cartella di origine. Per favore scegliere un'altra cartella");
-        return;
-      }
-
-      setState(() {
-        _isProcessing = true;
-      });
-      state.addMessage('Ricerca di tutti i files...');
-      int fileCount = await filesLookup(source: _source!);
-      state.addMessage('Trovati $fileCount files');
-      setState(() {
-        _fileCount = fileCount;
-      });
-
-      state.addMessage('Inizio a processare i file');
-      Stopwatch stopwatch = Stopwatch()..start();
-      _actionFunction(
-        source: _source!,
-        destination: _target!,
-        onError: (error) {
-          state.addMessage(error);
-        },
-        onData: (File file) {
-          state.addMessage('Elaborato ${file.path}');
-          setState(() {
-            _fileProcessed++;
-          });
-        },
-        onDone: () {
-          stopwatch.stop();
-          state.addMessage(
-              'Elaborazione terminata. Tempo impiegato: ${stopwatch.elapsed}');
-          setState(() {
-            _isProcessing = false;
-          });
-        },
-      );
-    }
 
     return ScaffoldPage.withPadding(
       header: PageHeader(
@@ -175,7 +175,7 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             FilledButton(
-              onPressed: start,
+              onPressed: () => start(state),
               child: const Text('Start'),
             ),
             const SizedBox(height: 10),
